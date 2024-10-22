@@ -1,0 +1,165 @@
+services:
+  postgres:
+    image: bitnami/postgresql:15
+    container_name: postgres
+    environment:
+      - POSTGRESQL_USERNAME=admin
+      - POSTGRESQL_PASSWORD=password
+      - POSTGRESQL_DATABASE=internship_project
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/bitnami/postgresql
+    networks:
+      - app-network
+
+  zookeeper:
+    image: bitnami/zookeeper:3.7
+    container_name: zookeeper
+    environment:
+      ALLOW_ANONYMOUS_LOGIN: 'yes'
+    ports:
+      - "32181:2181"
+    networks:
+      - app-network
+
+  kafka:
+    image: bitnami/kafka:3.7
+    container_name: kafka
+    environment:
+      - KAFKA_BROKER_ID=1
+      - KAFKA_ZOOKEEPER_CONNECT=zookeeper:2181
+      - KAFKA_ADVERTISED_LISTENERS=PLAINTEXT://kafka:9092
+      - ALLOW_PLAINTEXT_LISTENER=yes
+    ports:
+      - "9092:9092"
+    healthcheck:
+      test: [ "CMD", "kafka-topics.sh", "--list", "--bootstrap-server", "localhost:9092" ]
+      interval: 10s
+      retries: 10
+    networks:
+      - app-network
+    depends_on:
+      - zookeeper
+
+  kafka-connect:
+    image: debezium/connect:1.9
+    container_name: kafka-connect
+    environment:
+      - BOOTSTRAP_SERVERS=kafka:9092
+      - GROUP_ID=kafka-connect-group
+      - CONFIG_STORAGE_TOPIC=docker-connect-configs
+      - OFFSET_STORAGE_TOPIC=docker-connect-offsets
+      - STATUS_STORAGE_TOPIC=docker-connect-status
+      - CONNECT_KEY_CONVERTER=org.apache.kafka.connect.json.JsonConverter
+      - CONNECT_VALUE_CONVERTER=org.apache.kafka.connect.json.JsonConverter
+      - CONNECT_INTERNAL_KEY_CONVERTER=org.apache.kafka.connect.json.JsonConverter
+      - CONNECT_INTERNAL_VALUE_CONVERTER=org.apache.kafka.connect.json.JsonConverter
+      - CONNECT_REST_PORT=8083
+      - CONNECT_PLUGIN_PATH=/kafka/connect/debezium-plugins
+      - CONNECT_LOG4J_ROOT_LOGLEVEL=INFO
+      - CONNECT_REST_ADVERTISED_HOST_NAME=kafka-connect
+    ports:
+      - "8083:8083"
+    networks:
+      - app-network
+    depends_on:
+      - kafka
+    volumes:
+      - ./connect-plugins:/kafka/connect/debezium-plugins
+
+  spark-master:
+    image: our-own-apache-spark:3.4.1
+    container_name: spark-master
+    environment:
+      - SPARK_LOCAL_IP=spark-master
+      - SPARK_WORKLOAD=master
+      - SPARK_SUBMIT_ARGS=--jars /opt/spark/jars/clickhouse-jdbc-0.6.0.jar
+      - SPARK_CLASSPATH=/opt/spark/jars/clickhouse-jdbc-0.6.0.jar
+    ports:
+      - "7077:7077"
+      - "8080:8080"
+    networks:
+      - app-network
+    volumes:
+      - ./apps:/opt/spark-apps
+      - ./data:/opt/spark-data
+    depends_on:
+      - kafka-connect
+      - postgres
+
+  spark-worker:
+    image: our-own-apache-spark:3.4.1
+    container_name: spark-worker
+    environment:
+      - SPARK_MASTER=spark://spark-master:7077
+      - SPARK_WORKER_CORES=1
+      - SPARK_WORKER_MEMORY=2G
+      - SPARK_DRIVER_MEMORY=2G
+      - SPARK_EXECUTOR_MEMORY=1G
+      - SPARK_WORKLOAD=worker
+      - SPARK_LOCAL_IP=spark-worker
+      - SPARK_SUBMIT_ARGS=--jars /opt/spark/jars/clickhouse-jdbc-0.6.0.jar
+      - SPARK_CLASSPATH=/opt/spark/jars/clickhouse-jdbc-0.6.0.jar
+    ports:
+      - "9091:8080"
+      - "7000:7000"
+    networks:
+      - app-network
+    depends_on:
+      - spark-master
+    volumes:
+      - ./apps:/opt/spark-apps
+      - ./data:/opt/spark-data
+
+  spark-submit:
+    image: our-own-apache-spark:3.4.1
+    container_name: spark-submit
+    depends_on:
+      - spark-master
+      - spark-worker
+      - clickhouse
+    networks:
+      - app-network
+    volumes:
+      - ./apps:/opt/spark-apps
+      - ./data:/opt/spark-data
+    #      - ./jars:/opt/spark/jars
+    environment:
+      - SPARK_SUBMIT_ARGS=--jars /opt/spark/jars/clickhouse-jdbc-0.6.0.jar
+      - SPARK_CLASSPATH=/opt/spark/jars/clickhouse-jdbc-0.6.0.jar
+    entrypoint: >
+      /opt/spark/bin/spark-submit
+      --master spark://spark-master:7077
+      --deploy-mode client
+      --jars /opt/spark/jars/clickhouse-jdbc-0.6.0.jar
+      --packages org.apache.spark:spark-sql-kafka-0-10_2.12:3.4.0
+      /opt/spark-apps/transform.py
+
+  clickhouse:
+    image: clickhouse/clickhouse-server:latest
+    container_name: clickhouse
+    ports:
+      - "8123:8123"
+    volumes:
+      - ./clickhouse/create_clickhouse_tables.sh:/docker-entrypoint-initdb.d/create_clickhouse_tables.sh
+    networks:
+      - app-network
+
+  data-generator:
+    build:
+      context: ./data_generator
+    container_name: data_generator
+    depends_on:
+      - postgres
+    networks:
+      - app-network
+
+volumes:
+  postgres_data:
+  spark-apps:
+
+
+networks:
+  app-network:
+    driver: bridge
