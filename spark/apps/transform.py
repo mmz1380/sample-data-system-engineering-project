@@ -9,62 +9,66 @@ from pyspark.sql import functions as F
 from pyspark.sql.types import StructType, StructField, StringType, IntegerType, DateType, FloatType, BooleanType, \
     TimestampType
 
-# schema_of_persons = StructType([
-#     StructField("id", IntegerType(), False),
-#     StructField("f_name", StringType(), False),
-#     StructField("l_name", StringType(), False),
-#     StructField("national_code", StringType(), False),
-#     StructField("place_of_birth", StringType(), False),
-#     StructField("birthday", DateType(), False),
-#     StructField("time_stamp", TimestampType(), False)
-# ])
-#
-# schema_of_houses = StructType([
-#     StructField("id", IntegerType(), False),
-#     StructField("area", IntegerType(), False),
-#     StructField("number_of_bedroom", FloatType(), False),
-#     StructField("number_of_bathroom", FloatType(), False),
-#     StructField("year", StringType(), False),
-#     StructField("plot_size", IntegerType(), False),
-#     StructField("floor", IntegerType(), False),
-#     StructField("is_plot_owned", BooleanType(), False),
-#     StructField("parking_lot_owned", IntegerType(), False),
-#     StructField("is_single_unit", BooleanType(), False),
-#     StructField("owner_id", IntegerType(), True),
-#     StructField("time_stamp", TimestampType(), False)
-# ])
+schema_of_persons = StructType([
+    StructField("id", IntegerType(), False),
+    StructField("f_name", StringType(), False),
+    StructField("l_name", StringType(), False),
+    StructField("national_code", StringType(), False),
+    StructField("place_of_birth", StringType(), False),
+    StructField("birthday", DateType(), False),
+    StructField("time_stamp", TimestampType(), False)
+])
+schema_of_houses = StructType([
+    StructField("id", IntegerType(), False),
+    StructField("area", IntegerType(), False),
+    StructField("number_of_bedroom", FloatType(), False),
+    StructField("number_of_bathroom", FloatType(), False),
+    StructField("year", StringType(), False),
+    StructField("plot_size", IntegerType(), False),
+    StructField("floor", IntegerType(), False),
+    StructField("is_plot_owned", BooleanType(), False),
+    StructField("parking_lot_owned", IntegerType(), False),
+    StructField("is_single_unit", BooleanType(), False),
+    StructField("owner_id", IntegerType(), True),
+    StructField("time_stamp", TimestampType(), False)
+])
 
 spark = SparkSession.builder \
-    .appName("Kafka Spark Streaming") \
+    .appName("Postgres to ClickHouse") \
     .master("spark://spark-master:7077") \
     .config("spark.executor.memory", "2g") \
     .config("spark.driver.memory", "2g") \
-    .config("spark.jars", "/opt/spark/jars/clickhouse-jdbc-0.6.0.jar") \
-    .config("spark.executor.extraClassPath", "/opt/spark/jars/clickhouse-jdbc-0.6.0.jar") \
-    .config("spark.driver.extraClassPath", "/opt/spark/jars/clickhouse-jdbc-0.6.0.jar") \
+    .config("spark.jars", "/opt/spark/jars/postgresql-42.2.29.jre7.jar,/opt/spark/jars/clickhouse-jdbc-0.6.0.jar") \
     .getOrCreate()
 
-kafka_df = spark.readStream \
-    .format("kafka") \
-    .option("kafka.bootstrap.servers", "kafka:9092") \
-    .option("subscribe", "dbserver1.public.persons,dbserver1.public.houses") \
-    .load()
+postgres_url = "jdbc:postgresql://<POSTGRES-HOST>:5432/internship_project"
+postgres_properties = {
+    "user": "admin",
+    "password": "passwork",
+    "driver": "org.postgresql.Driver"
+}
 
-persons_df = kafka_df.selectExpr("CAST(value AS STRING) as json_string") \
-    .select(F.from_json(col("json_string"), schema_of_persons).alias("data")) \
-    .select("data.*")
+persons_df = spark.read \
+    .format("jdbc") \
+    .option("url", postgres_url) \
+    .option("dbtable", "persons") \
+    .options(**postgres_properties) \
+    .schema(schema_of_persons) \
+    .load()
 
 persons_df = persons_df \
     .withColumnRenamed("f_name", "first_name") \
-    .withColumnRenamed("l_name", "last_name") \
-    .withColumnRenamed('id', 'person_pk') \
-    .withColumnRenamed('time_stamp', 'person_time_stamp')
+    .withColumnRenamed("l_name", "last_name")
 
 persons_df = persons_df.withColumn("full_name", concat_ws(" ", col("first_name"), col("last_name")))
 
-houses_df = kafka_df.selectExpr("CAST(value AS STRING) as json_string") \
-    .select(F.from_json(col("json_string"), schema_of_houses).alias("data")) \
-    .select("data.*")
+houses_df = spark.read \
+    .format("jdbc") \
+    .option("url", postgres_url) \
+    .option("dbtable", "houses") \
+    .options(**postgres_properties) \
+    .schema(schema_of_houses) \
+    .load()
 
 houses_df = houses_df.na.drop()
 
@@ -98,9 +102,8 @@ def write_to_clickhouse(df, epoch_id):
         .save()
 
 
-query = joined_df.writeStream \
+joined_df.writeStream \
     .outputMode("append") \
     .foreachBatch(write_to_clickhouse) \
-    .start()
-
-query.awaitTermination()
+    .start() \
+    .awaitTermination()

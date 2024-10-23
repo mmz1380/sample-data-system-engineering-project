@@ -49,14 +49,8 @@ COPY start-spark.sh /
 RUN mkdir -p /opt/spark-apps && \
     chmod -R 777 /opt/spark-apps
 
-#WORKDIR /opt/spark-apps
-
-RUN ls -ld /opt/spark-apps
-
 COPY /apps/transform.py /opt/
 COPY requirements_spark.txt /opt/
-
-RUN ls -l /opt/spark-apps
 
 RUN #pip3 install --no-cache-dir -r requirements_spark.txt
 
