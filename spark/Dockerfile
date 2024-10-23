@@ -1,7 +1,5 @@
-# Builder step to download and configure Spark environment
 FROM openjdk:11.0.11-jre-slim-buster as builder
 
-# Add Dependencies for PySpark
 RUN apt-get update && apt-get install -y curl vim wget software-properties-common ssh net-tools ca-certificates python3 python3-pip python3-numpy python3-matplotlib python3-scipy python3-pandas python3-simpy
 
 RUN update-alternatives --install "/usr/bin/python" "python" "$(which python3)" 1
@@ -22,7 +20,6 @@ COPY ./jars/httpclient5-5.3.jar /opt/spark/jars/
 COPY ./jars/httpcore5-5.3.jar /opt/spark/jars/
 COPY ./jars/httpcore5-h2-5.3.jar /opt/spark/jars/
 
-# Apache spark environment
 FROM builder as apache-spark
 
 WORKDIR /opt/spark
@@ -44,8 +41,6 @@ RUN mkdir -p $SPARK_LOG_DIR && \
     touch $SPARK_WORKER_LOG && \
     ln -sf /dev/stdout $SPARK_MASTER_LOG && \
     ln -sf /dev/stdout $SPARK_WORKER_LOG
-
-RUN #/opt/spark/bin/spark-shell --packages org.apache.spark:spark-sql-kafka-0-10_2.12:3.4.0
 
 COPY start-spark.sh /
 

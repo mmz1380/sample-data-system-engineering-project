@@ -70,8 +70,6 @@ services:
       --jars /opt/spark/jars/clickhouse-jdbc-0.6.0.jar,/opt/spark/jars/postgresql-42.2.29.jre7.jar
       /opt/transform.py
 
-  #      --packages org.apache.spark:spark-sql-kafka-0-10_2.12:3.4.0
-
   clickhouse:
     image: clickhouse/clickhouse-server:latest
     container_name: clickhouse
