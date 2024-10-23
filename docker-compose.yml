@@ -142,22 +142,24 @@ services:
     ports:
       - "8123:8123"
     volumes:
+      - clickhouse_data:/var/lib/clickhouse
       - ./clickhouse/create_clickhouse_tables.sh:/docker-entrypoint-initdb.d/create_clickhouse_tables.sh
     networks:
       - app-network
 
-#  data-generator:
-#    build:
-#      context: ./data_generator
-#    container_name: data_generator
-#    depends_on:
-#      - postgres
-#    networks:
-#      - app-network
+  data-generator:
+    build:
+      context: ./data_generator
+    container_name: data_generator
+    depends_on:
+      - postgres
+    networks:
+      - app-network
 
 volumes:
   postgres_data:
   spark-apps:
+  clickhouse_data:
 
 networks:
   app-network:

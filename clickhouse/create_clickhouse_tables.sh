@@ -1,7 +1,7 @@
 #!/bin/bash
 clickhouse-client --query="""
 CREATE TABLE IF NOT EXISTS default.houses (
-    id Id,
+    id Int32,
     area Int32,
     number_of_bedroom Float32,
     number_of_bathroom Float32,
@@ -11,10 +11,11 @@ CREATE TABLE IF NOT EXISTS default.houses (
     is_plot_owned Boolean,
     parking_lot_owned Int32,
     is_single_unit Boolean,
-    person_id Int32,
     house_price Int32,
-    full_name String,
+    person_id Int32,
+    owner_full_name String,
     time_stamp DateTime
 ) ENGINE = MergeTree()
-ORDER BY id;
+ORDER BY id
+PRIMARY KEY id;
 """
