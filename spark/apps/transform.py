@@ -3,11 +3,9 @@ import logging
 from pyspark.sql import SparkSession
 from pyspark.sql.functions import col, concat_ws
 
-# Set up detailed logging
-logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
+logging.basicConfig(level=logging.INFO, format='MMZ||\t%(asctime)s - %(levelname)s - %(message)s')
 logger = logging.getLogger("PostgresToClickHouse")
 
-# PySpark environment variables
 os.environ[
     'PYSPARK_SUBMIT_ARGS'] = '--jars /opt/spark/jars/postgresql-42.2.29.jre7.jar,/opt/spark/jars/clickhouse-jdbc-0.6.0.jar pyspark-shell'
 
@@ -62,8 +60,13 @@ def read_clickhouse_existing_ids():
 def filter_new_records(houses_df, existing_ids_df):
     logger.info("Filtering out records that already exist in ClickHouse...")
     try:
+        total_rows = houses_df.count()
         filtered_df = houses_df.join(existing_ids_df, houses_df["id"] == existing_ids_df["id"], "left_anti")
-        logger.info(f"Number of new records to be inserted: {filtered_df.count()}")
+        new_row_count = filtered_df.count()
+        old_row_count = total_rows - new_row_count
+        logger.info(f"Total rows in PostgreSQL: {total_rows}")
+        logger.info(f"New rows to be inserted: {new_row_count}")
+        logger.info(f"Old rows already existing in ClickHouse: {old_row_count}")
         return filtered_df
     except Exception as e:
         logger.error(f"Error filtering new records: {str(e)}")
@@ -73,6 +76,7 @@ def filter_new_records(houses_df, existing_ids_df):
 def write_to_clickhouse(df):
     logger.info("Writing new records to ClickHouse...")
     try:
+        new_row_count = df.count()
         df.write \
             .format("jdbc") \
             .option("url", "jdbc:clickhouse://clickhouse:8123") \
@@ -81,19 +85,17 @@ def write_to_clickhouse(df):
             .option("password", "") \
             .mode("append") \
             .save()
-        logger.info("Successfully written new records to ClickHouse.")
+        logger.info(f"Successfully written {new_row_count} new records to ClickHouse.")
     except Exception as e:
         logger.error(f"Error writing to ClickHouse: {str(e)}")
         raise
 
 
-# Main logic
 if __name__ == "__main__":
     try:
         spark = initialize_spark_session()
         postgres_url = "jdbc:postgresql://postgres:5432/internship_project"
 
-        # Read PostgreSQL tables
         persons_df = read_postgres_table(spark, "persons") \
             .withColumnRenamed("f_name", "first_name") \
             .withColumnRenamed("l_name", "last_name")
@@ -101,7 +103,6 @@ if __name__ == "__main__":
 
         houses_df = read_postgres_table(spark, "houses").na.drop().withColumnRenamed("owner_id", "person_id")
 
-        # Join the data
         logger.info("Joining houses and persons DataFrames...")
         joined_df = houses_df.join(
             persons_df,
@@ -112,13 +113,10 @@ if __name__ == "__main__":
         )
         joined_df = joined_df.withColumnRenamed('full_name', 'owner_full_name')
 
-        # Read existing data from ClickHouse
         existing_ids_df = read_clickhouse_existing_ids()
 
-        # Filter the joined DataFrame to get only new records
         new_records_df = filter_new_records(joined_df, existing_ids_df)
 
-        # Write the filtered DataFrame to ClickHouse
         write_to_clickhouse(new_records_df)
 
         logger.info("Script completed successfully.")
