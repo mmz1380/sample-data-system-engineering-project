@@ -13,63 +13,63 @@ services:
     networks:
       - app-network
 
-  zookeeper:
-    image: bitnami/zookeeper:3.7
-    container_name: zookeeper
-    environment:
-      ALLOW_ANONYMOUS_LOGIN: 'yes'
-    ports:
-      - "32181:2181"
-    networks:
-      - app-network
-
-  kafka:
-    image: bitnami/kafka:3.7
-    container_name: kafka
-    environment:
-      - KAFKA_BROKER_ID=1
-      - KAFKA_ZOOKEEPER_CONNECT=zookeeper:2181
-      - KAFKA_ADVERTISED_LISTENERS=PLAINTEXT://kafka:9092
-      - ALLOW_PLAINTEXT_LISTENER=yes
-    ports:
-      - "9092:9092"
-    healthcheck:
-      test: [ "CMD", "kafka-topics.sh", "--list", "--bootstrap-server", "localhost:9092" ]
-      interval: 10s
-      retries: 10
-    networks:
-      - app-network
-    depends_on:
-      - zookeeper
-
-  kafka-connect:
-    image: debezium/connect:1.9
-    container_name: kafka-connect
-    environment:
-      - BOOTSTRAP_SERVERS=kafka:9092
-      - GROUP_ID=kafka-connect-group
-      - CONFIG_STORAGE_TOPIC=docker-connect-configs
-      - OFFSET_STORAGE_TOPIC=docker-connect-offsets
-      - STATUS_STORAGE_TOPIC=docker-connect-status
-      - CONNECT_KEY_CONVERTER=org.apache.kafka.connect.json.JsonConverter
-      - CONNECT_VALUE_CONVERTER=org.apache.kafka.connect.json.JsonConverter
-      - CONNECT_INTERNAL_KEY_CONVERTER=org.apache.kafka.connect.json.JsonConverter
-      - CONNECT_INTERNAL_VALUE_CONVERTER=org.apache.kafka.connect.json.JsonConverter
-      - CONNECT_REST_PORT=8083
-      - CONNECT_PLUGIN_PATH=/kafka/connect/debezium-plugins
-      - CONNECT_LOG4J_ROOT_LOGLEVEL=INFO
-      - CONNECT_REST_ADVERTISED_HOST_NAME=kafka-connect
-    ports:
-      - "8083:8083"
-    networks:
-      - app-network
-    depends_on:
-      - kafka
-    volumes:
-      - ./connect-plugins:/kafka/connect/debezium-plugins
+  #  zookeeper:
+  #    image: bitnami/zookeeper:3.7
+  #    container_name: zookeeper
+  #    environment:
+  #      ALLOW_ANONYMOUS_LOGIN: 'yes'
+  #    ports:
+  #      - "32181:2181"
+  #    networks:
+  #      - app-network
+  #
+  #  kafka:
+  #    image: bitnami/kafka:3.7
+  #    container_name: kafka
+  #    environment:
+  #      - KAFKA_BROKER_ID=1
+  #      - KAFKA_ZOOKEEPER_CONNECT=zookeeper:2181
+  #      - KAFKA_ADVERTISED_LISTENERS=PLAINTEXT://kafka:9092
+  #      - ALLOW_PLAINTEXT_LISTENER=yes
+  #    ports:
+  #      - "9092:9092"
+  #    healthcheck:
+  #      test: [ "CMD", "kafka-topics.sh", "--list", "--bootstrap-server", "localhost:9092" ]
+  #      interval: 10s
+  #      retries: 10
+  #    networks:
+  #      - app-network
+  #    depends_on:
+  #      - zookeeper
+  #
+  #  kafka-connect:
+  #    image: debezium/connect:1.9
+  #    container_name: kafka-connect
+  #    environment:
+  #      - BOOTSTRAP_SERVERS=kafka:9092
+  #      - GROUP_ID=kafka-connect-group
+  #      - CONFIG_STORAGE_TOPIC=docker-connect-configs
+  #      - OFFSET_STORAGE_TOPIC=docker-connect-offsets
+  #      - STATUS_STORAGE_TOPIC=docker-connect-status
+  #      - CONNECT_KEY_CONVERTER=org.apache.kafka.connect.json.JsonConverter
+  #      - CONNECT_VALUE_CONVERTER=org.apache.kafka.connect.json.JsonConverter
+  #      - CONNECT_INTERNAL_KEY_CONVERTER=org.apache.kafka.connect.json.JsonConverter
+  #      - CONNECT_INTERNAL_VALUE_CONVERTER=org.apache.kafka.connect.json.JsonConverter
+  #      - CONNECT_REST_PORT=8083
+  #      - CONNECT_PLUGIN_PATH=/kafka/connect/debezium-plugins
+  #      - CONNECT_LOG4J_ROOT_LOGLEVEL=INFO
+  #      - CONNECT_REST_ADVERTISED_HOST_NAME=kafka-connect
+  #    ports:
+  #      - "8083:8083"
+  #    networks:
+  #      - app-network
+  #    depends_on:
+  #      - kafka
+  #    volumes:
+  #      - ./connect-plugins:/kafka/connect/debezium-plugins
 
   spark-master:
-    image: our-own-apache-spark:3.4.1
+    image: our-own-apache-spark:3.4.0
     container_name: spark-master
     environment:
       - SPARK_LOCAL_IP=spark-master
@@ -85,11 +85,10 @@ services:
       - ./apps:/opt/spark-apps
       - ./data:/opt/spark-data
     depends_on:
-      - kafka-connect
       - postgres
 
   spark-worker:
-    image: our-own-apache-spark:3.4.1
+    image: our-own-apache-spark:3.4.0
     container_name: spark-worker
     environment:
       - SPARK_MASTER=spark://spark-master:7077
@@ -113,7 +112,7 @@ services:
       - ./data:/opt/spark-data
 
   spark-submit:
-    image: our-own-apache-spark:3.4.1
+    image: our-own-apache-spark:3.4.0
     container_name: spark-submit
     depends_on:
       - spark-master
@@ -126,6 +125,7 @@ services:
       - ./data:/opt/spark-data
     #      - ./jars:/opt/spark/jars
     environment:
+      - SPARK_WORKLOAD=submit
       - SPARK_SUBMIT_ARGS=--jars /opt/spark/jars/clickhouse-jdbc-0.6.0.jar
       - SPARK_CLASSPATH=/opt/spark/jars/clickhouse-jdbc-0.6.0.jar
     entrypoint: >
@@ -134,7 +134,7 @@ services:
       --deploy-mode client
       --jars /opt/spark/jars/clickhouse-jdbc-0.6.0.jar
       --packages org.apache.spark:spark-sql-kafka-0-10_2.12:3.4.0
-      /opt/spark-apps/transform.py
+      /opt/transform.py
 
   clickhouse:
     image: clickhouse/clickhouse-server:latest
@@ -146,14 +146,14 @@ services:
     networks:
       - app-network
 
-  data-generator:
-    build:
-      context: ./data_generator
-    container_name: data_generator
-    depends_on:
-      - postgres
-    networks:
-      - app-network
+#  data-generator:
+#    build:
+#      context: ./data_generator
+#    container_name: data_generator
+#    depends_on:
+#      - postgres
+#    networks:
+#      - app-network
 
 volumes:
   postgres_data:
