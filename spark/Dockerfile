@@ -18,6 +18,9 @@ RUN wget -O apache-spark.tgz "https://archive.apache.org/dist/spark/spark-${SPAR
 
 COPY ./jars/clickhouse-jdbc-0.6.0.jar /opt/spark/jars/
 COPY ./jars/postgresql-42.2.29.jre7.jar /opt/spark/jars/
+COPY ./jars/httpclient5-5.3.jar /opt/spark/jars/
+COPY ./jars/httpcore5-5.3.jar /opt/spark/jars/
+COPY ./jars/httpcore5-h2-5.3.jar /opt/spark/jars/
 
 # Apache spark environment
 FROM builder as apache-spark
@@ -42,7 +45,7 @@ RUN mkdir -p $SPARK_LOG_DIR && \
     ln -sf /dev/stdout $SPARK_MASTER_LOG && \
     ln -sf /dev/stdout $SPARK_WORKER_LOG
 
-RUN /opt/spark/bin/spark-shell --packages org.apache.spark:spark-sql-kafka-0-10_2.12:3.4.0
+RUN #/opt/spark/bin/spark-shell --packages org.apache.spark:spark-sql-kafka-0-10_2.12:3.4.0
 
 COPY start-spark.sh /
 
