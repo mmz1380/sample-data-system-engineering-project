@@ -2,12 +2,53 @@ import os
 import logging
 from pyspark.sql import SparkSession
 from pyspark.sql.functions import col, concat_ws
+from prometheus_client import Gauge, start_http_server
+import psycopg2
+
+start_http_server(8000)
+existing_rows_gauge = Gauge('Spark__existing_rows_in_clickhouse', 'Number of existing rows in ClickHouse houses table')
+new_rows_gauge = Gauge('Spark__new_rows_to_insert', 'Number of new rows to insert into ClickHouse')
+old_rows_gauge = Gauge('Spark__existing_rows_in_postgres', 'Number of rows already existing in ClickHouse')
+total_rows_gauge = Gauge('Spark__total_rows_in_postgres', 'Total number of rows in PostgreSQL houses table')
 
 logging.basicConfig(level=logging.INFO, format='MMZ||\t%(asctime)s - %(levelname)s - %(message)s')
 logger = logging.getLogger("PostgresToClickHouse")
 
 os.environ[
     'PYSPARK_SUBMIT_ARGS'] = '--jars /opt/spark/jars/postgresql-42.2.29.jre7.jar,/opt/spark/jars/clickhouse-jdbc-0.6.0.jar pyspark-shell'
+
+
+def insert_metrics_to_postgres(existing, new, old, total):
+    db_host = "postgres"
+    db_name = "internship_project"
+    db_user = "admin"
+    db_pass = "password"
+
+    conn = psycopg2.connect(host=db_host, database=db_name, user=db_user, password=db_pass)
+    cur = conn.cursor()
+
+    try:
+        cur.execute("""
+            CREATE TABLE IF NOT EXISTS monitoring_metrics (
+            timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            existing_rows_in_clickhouse INT,
+            new_rows_to_insert INT,
+            old_rows_in_clickhouse INT,
+            total_rows_in_postgres INT
+            );  
+        """)
+        cur.execute("""
+            INSERT INTO monitoring_metrics (timestamp, existing_rows_in_clickhouse, new_rows_to_insert, old_rows_in_clickhouse, total_rows_in_postgres)
+            VALUES (CURRENT_TIMESTAMP, %s, %s, %s, %s)
+        """, (existing, new, old, total))
+        conn.commit()
+        logger.info("Metrics inserted successfully into PostgreSQL.")
+    except Exception as e:
+        logger.error(f"Error inserting metrics into PostgreSQL: {str(e)}")
+        conn.rollback()
+    finally:
+        cur.close()
+        conn.close()
 
 
 def initialize_spark_session():
@@ -50,7 +91,9 @@ def read_clickhouse_existing_ids():
             .option("user", "default") \
             .option("password", "") \
             .load()
-        logger.info(f"Successfully read existing 'houses' data with {existing_df.count()} records.")
+        existing_count = existing_df.count()
+        existing_rows_gauge.set(existing_count)
+        logger.info(f"Successfully read existing 'houses' data with {existing_count} records.")
         return existing_df.select("id").distinct()
     except Exception as e:
         logger.error(f"Error reading existing 'houses' data from ClickHouse: {str(e)}")
@@ -64,9 +107,14 @@ def filter_new_records(houses_df, existing_ids_df):
         filtered_df = houses_df.join(existing_ids_df, houses_df["id"] == existing_ids_df["id"], "left_anti")
         new_row_count = filtered_df.count()
         old_row_count = total_rows - new_row_count
+        total_rows_gauge.set(total_rows)
+        new_rows_gauge.set(new_row_count)
+        old_rows_gauge.set(old_row_count)
+        existing_count = existing_ids_df.count()
         logger.info(f"Total rows in PostgreSQL: {total_rows}")
         logger.info(f"New rows to be inserted: {new_row_count}")
         logger.info(f"Old rows already existing in ClickHouse: {old_row_count}")
+        insert_metrics_to_postgres(existing_count, new_row_count, old_row_count, total_rows)
         return filtered_df
     except Exception as e:
         logger.error(f"Error filtering new records: {str(e)}")

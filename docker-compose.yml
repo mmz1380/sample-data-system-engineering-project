@@ -90,10 +90,79 @@ services:
     networks:
       - app-network
 
+
+  ##### Monitoring
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: prometheus
+    ports:
+      - "9090:9090"
+    volumes:
+      - prometheus_data:/prometheus  # Mount the persistent volume
+      - ./prometheus/prometheus.yml:/etc/prometheus/prometheus.yml
+    networks:
+      - app-network
+
+  cadvisor:
+    image: google/cadvisor:latest
+    container_name: cadvisor
+    ports:
+      - "8081:8080"
+    volumes:
+      - /:/rootfs:ro
+      - /var/run:/var/run:ro
+      - /sys:/sys:ro
+      - /var/lib/docker/:/var/lib/docker:ro
+    networks:
+      - app-network
+
+  node-exporter:
+    image: prom/node-exporter:latest
+    container_name: node-exporter
+    ports:
+      - "9100:9100"
+    networks:
+      - app-network
+
+  postgres-exporter:
+    image: wrouesnel/postgres_exporter
+    environment:
+      - DATA_SOURCE_NAME=postgresql://admin:password@postgres:5432/internship_project
+    ports:
+      - "9187:9187"
+    networks:
+      - app-network
+
+  # TODO: I should find a new image for it because it doesn't work at all
+  clickhouse-exporter:
+    image: hotwifi/clickhouse_exporter:latest
+    container_name: clickhouse-exporter
+    environment:
+      CLICKHOUSE_HOST: "clickhouse"
+      CLICKHOUSE_PORT: "8123"
+    ports:
+      - "9116:9116"
+    networks:
+      - app-network
+  grafana:
+    image: grafana/grafana:latest
+    container_name: grafana
+    ports:
+      - "3000:3000"
+    volumes:
+      - grafana-data:/var/lib/grafana
+    networks:
+      - app-network
+
+####
+
+
 volumes:
   postgres_data:
   spark-apps:
   clickhouse_data:
+  grafana-data:
+  prometheus_data:
 
 networks:
   app-network:

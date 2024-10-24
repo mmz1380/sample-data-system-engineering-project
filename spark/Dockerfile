@@ -50,6 +50,10 @@ RUN mkdir -p /opt/spark-apps && \
 COPY /apps/transform.py /opt/
 COPY requirements_spark.txt /opt/
 
-RUN #pip3 install --no-cache-dir -r requirements_spark.txt
+WORKDIR /opt/
+
+RUN apt-get update && apt-get install -y libpq-dev gcc
+
+RUN pip3 install --no-cache-dir -r requirements_spark.txt
 
 CMD ["/bin/bash", "/start-spark.sh"]
