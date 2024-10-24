@@ -172,5 +172,6 @@ This project is inspired by the idea of creating a scalable and reliable data pi
 monitoring. It uses a range of technologies to achieve this goal, including Docker, PySpark, PostgreSQL, ClickHouse,
 Prometheus, and Grafana.
 
-**GitHub Repository**:
-[Sample Data System Engineering Project](https://github.com/mmz1380/sample-data-system-engineering-project)
+[//]: # (**GitHub Repository**:)
+
+[//]: # ([Sample Data System Engineering Project]&#40;https://github.com/mmz1380/sample-data-system-engineering-project&#41;)
