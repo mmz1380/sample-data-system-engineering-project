@@ -21,7 +21,7 @@ os.environ[
 def insert_metrics_to_postgres(existing, new, old, total):
     db_host = "postgres"
     db_name = "internship_project"
-    db_user = "admin"
+    db_user = "postgres"
     db_pass = "password"
 
     conn = psycopg2.connect(host=db_host, database=db_name, user=db_user, password=db_pass)
@@ -70,7 +70,7 @@ def read_postgres_table(spark, table_name):
             .option("url", postgres_url) \
             .option("dbtable", table_name) \
             .option("driver", "org.postgresql.Driver") \
-            .option("user", "admin") \
+            .option("user", "postgres") \
             .option("password", "password") \
             .load()
         count = df.count()
