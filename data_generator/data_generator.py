@@ -133,7 +133,7 @@ def generate_and_insert_data():
         print("Table 'Houses' created.")
     except Exception as e:
         print(f"Table 'Houses' creation error: {e}")
-    # time.sleep(40)
+    time.sleep(10)
     while True:
         num_persons = 7
         persons_data = generate_persons_data(num_persons)
@@ -197,7 +197,7 @@ def generate_and_insert_data():
             print(f"Error inserting data into 'houses': {e}")
             conn.rollback()
         print()
-        time.sleep(2)
+        time.sleep(10)
 
 
 if __name__ == '__main__':
