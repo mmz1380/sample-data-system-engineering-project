@@ -75,8 +75,8 @@ def generate_houses_data(sample_size: int, owner_ids: list) -> list:
 def generate_and_insert_data():
     db_host = os.getenv('DB_HOST', 'postgres')
     db_name = os.getenv('DB_NAME', 'internship_project')
-    db_user = os.getenv('DB_USER', 'admin')
-    db_pass = os.getenv('DB_PASS', 'password')
+    db_user = os.getenv('DB_USER', 'postgres')
+    db_pass = os.getenv('DB_PASS', 'pass')
 
     while True:
         try:
@@ -133,7 +133,7 @@ def generate_and_insert_data():
         print("Table 'Houses' created.")
     except Exception as e:
         print(f"Table 'Houses' creation error: {e}")
-    time.sleep(40)
+    # time.sleep(40)
     while True:
         num_persons = 7
         persons_data = generate_persons_data(num_persons)

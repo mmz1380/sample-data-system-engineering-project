@@ -3,8 +3,7 @@ services:
     image: bitnami/postgresql:15
     container_name: postgres
     environment:
-      - POSTGRESQL_USERNAME=admin
-      - POSTGRESQL_PASSWORD=password
+      - POSTGRESQL_PASSWORD=pass
       - POSTGRESQL_DATABASE=internship_project
     ports:
       - "5432:5432"
@@ -13,62 +12,62 @@ services:
     networks:
       - app-network
 
-  spark-master:
-    image: our-own-apache-spark:3.4.0
-    container_name: spark-master
-    environment:
-      - SPARK_LOCAL_IP=spark-master
-      - SPARK_WORKLOAD=master
-      - SPARK_SUBMIT_ARGS=--jars /opt/spark/jars/clickhouse-jdbc-0.6.0.jar,/opt/spark/jars/postgresql-42.2.29.jre7.jar
-      - SPARK_CLASSPATH=/opt/spark/jars/clickhouse-jdbc-0.6.0.jar:/opt/spark/jars/postgresql-42.2.29.jre7.jar
-    ports:
-      - "7077:7077"
-      - "8080:8080"
-    networks:
-      - app-network
-    depends_on:
-      - postgres
-
-  spark-worker:
-    image: our-own-apache-spark:3.4.0
-    container_name: spark-worker
-    environment:
-      - SPARK_MASTER=spark://spark-master:7077
-      - SPARK_WORKER_CORES=1
-      - SPARK_WORKER_MEMORY=2G
-      - SPARK_DRIVER_MEMORY=2G
-      - SPARK_EXECUTOR_MEMORY=1G
-      - SPARK_WORKLOAD=worker
-      - SPARK_LOCAL_IP=spark-worker
-      - SPARK_SUBMIT_ARGS=--jars /opt/spark/jars/clickhouse-jdbc-0.6.0.jar,/opt/spark/jars/postgresql-42.2.29.jre7.jar
-      - SPARK_CLASSPATH=/opt/spark/jars/clickhouse-jdbc-0.6.0.jar:/opt/spark/jars/postgresql-42.2.29.jre7.jar
-    ports:
-      - "9091:8080"
-      - "7000:7000"
-    networks:
-      - app-network
-    depends_on:
-      - spark-master
-
-  spark-submit:
-    image: our-own-apache-spark:3.4.0
-    container_name: spark-submit
-    depends_on:
-      - spark-master
-      - spark-worker
-      - clickhouse
-    networks:
-      - app-network
-    environment:
-      - SPARK_WORKLOAD=submit
-      - SPARK_SUBMIT_ARGS=--jars /opt/spark/jars/clickhouse-jdbc-0.6.0.jar,/opt/spark/jars/postgresql-42.2.29.jre7.jar
-      - SPARK_CLASSPATH=/opt/spark/jars/clickhouse-jdbc-0.6.0.jar:/opt/spark/jars/postgresql-42.2.29.jre7.jar
-    entrypoint: >
-      /opt/spark/bin/spark-submit
-      --master spark://spark-master:7077
-      --deploy-mode client
-      --jars /opt/spark/jars/clickhouse-jdbc-0.6.0.jar,/opt/spark/jars/postgresql-42.2.29.jre7.jar
-      /opt/transform.py
+  #  spark-master:
+  #    image: our-own-apache-spark:3.4.0
+  #    container_name: spark-master
+  #    environment:
+  #      - SPARK_LOCAL_IP=spark-master
+  #      - SPARK_WORKLOAD=master
+  #      - SPARK_SUBMIT_ARGS=--jars /opt/spark/jars/clickhouse-jdbc-0.6.0.jar,/opt/spark/jars/postgresql-42.2.29.jre7.jar
+  #      - SPARK_CLASSPATH=/opt/spark/jars/clickhouse-jdbc-0.6.0.jar:/opt/spark/jars/postgresql-42.2.29.jre7.jar
+  #    ports:
+  #      - "7077:7077"
+  #      - "8080:8080"
+  #    networks:
+  #      - app-network
+  #    depends_on:
+  #      - postgres
+  #
+  #  spark-worker:
+  #    image: our-own-apache-spark:3.4.0
+  #    container_name: spark-worker
+  #    environment:
+  #      - SPARK_MASTER=spark://spark-master:7077
+  #      - SPARK_WORKER_CORES=1
+  #      - SPARK_WORKER_MEMORY=2G
+  #      - SPARK_DRIVER_MEMORY=2G
+  #      - SPARK_EXECUTOR_MEMORY=1G
+  #      - SPARK_WORKLOAD=worker
+  #      - SPARK_LOCAL_IP=spark-worker
+  #      - SPARK_SUBMIT_ARGS=--jars /opt/spark/jars/clickhouse-jdbc-0.6.0.jar,/opt/spark/jars/postgresql-42.2.29.jre7.jar
+  #      - SPARK_CLASSPATH=/opt/spark/jars/clickhouse-jdbc-0.6.0.jar:/opt/spark/jars/postgresql-42.2.29.jre7.jar
+  #    ports:
+  #      - "9091:8080"
+  #      - "7000:7000"
+  #    networks:
+  #      - app-network
+  #    depends_on:
+  #      - spark-master
+  #
+  #  spark-submit:
+  #    image: our-own-apache-spark:3.4.0
+  #    container_name: spark-submit
+  #    depends_on:
+  #      - spark-master
+  #      - spark-worker
+  #      - clickhouse
+  #    networks:
+  #      - app-network
+  #    environment:
+  #      - SPARK_WORKLOAD=submit
+  #      - SPARK_SUBMIT_ARGS=--jars /opt/spark/jars/clickhouse-jdbc-0.6.0.jar,/opt/spark/jars/postgresql-42.2.29.jre7.jar
+  #      - SPARK_CLASSPATH=/opt/spark/jars/clickhouse-jdbc-0.6.0.jar:/opt/spark/jars/postgresql-42.2.29.jre7.jar
+  #    entrypoint: >
+  #      /opt/spark/bin/spark-submit
+  #      --master spark://spark-master:7077
+  #      --deploy-mode client
+  #      --jars /opt/spark/jars/clickhouse-jdbc-0.6.0.jar,/opt/spark/jars/postgresql-42.2.29.jre7.jar
+  #      /opt/transform.py
 
   clickhouse:
     image: clickhouse/clickhouse-server:latest
@@ -127,23 +126,12 @@ services:
   postgres-exporter:
     image: wrouesnel/postgres_exporter
     environment:
-      - DATA_SOURCE_NAME=postgresql://admin:password@postgres:5432/internship_project
+      - DATA_SOURCE_NAME=postgresql://postgres:pass@localhost:5432/internship_project
     ports:
       - "9187:9187"
     networks:
       - app-network
 
-  # TODO: I should find a new image for it because it doesn't work at all
-  clickhouse-exporter:
-    image: hotwifi/clickhouse_exporter:latest
-    container_name: clickhouse-exporter
-    environment:
-      CLICKHOUSE_HOST: "clickhouse"
-      CLICKHOUSE_PORT: "8123"
-    ports:
-      - "9116:9116"
-    networks:
-      - app-network
   grafana:
     image: grafana/grafana:latest
     container_name: grafana
@@ -153,9 +141,7 @@ services:
       - grafana-data:/var/lib/grafana
     networks:
       - app-network
-
-####
-
+  #####
 
 volumes:
   postgres_data:
