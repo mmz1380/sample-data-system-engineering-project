@@ -197,7 +197,7 @@ def generate_and_insert_data():
             print(f"Error inserting data into 'houses': {e}")
             conn.rollback()
         print()
-        time.sleep(10)
+        time.sleep(5)
 
 
 if __name__ == '__main__':
